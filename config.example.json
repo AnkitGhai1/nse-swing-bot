@@ -1,0 +1,22 @@
+{
+  "capital": 40000,
+  "risk_pct_per_trade": 0.02,
+  "max_open_positions": 3,
+  "max_new_signals_per_run": 2,
+  "max_per_sector": 1,
+  "pause_when_no_edge": true,
+  "intraday_enabled": true,
+
+  "telegram_bot_token": "PASTE_YOUR_BOT_TOKEN_HERE",
+  "telegram_chat_id": "PASTE_YOUR_CHAT_ID_HERE",
+
+  "callmebot_user": "@your_telegram_username",
+  "callmebot_voice": "en-IN-Standard-A",
+
+  "pushover_app_token": "",
+  "pushover_user_key": "",
+  "pushover_retry_sec": 60,
+  "pushover_expire_sec": 1800,
+
+  "alarm_events": ["BUY", "INTRADAY_BUY", "STOP_HIT", "TARGET_HIT", "EXPIRED"]
+}
