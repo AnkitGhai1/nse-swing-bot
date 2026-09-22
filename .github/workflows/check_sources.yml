@@ -1,0 +1,19 @@
+name: Check data sources
+
+# Manual only -- run this once after setup (and any time alerts look wrong)
+# to see which data sources work from GitHub's servers.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python3 check_sources.py
