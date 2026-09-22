@@ -1,0 +1,22 @@
+{
+  "generated": "2026-09-22",
+  "adopted_tuned": false,
+  "edge_ok": true,
+  "reason": "Kept default rules \u2014 self-tuning failed: edge/day beats defaults by 10%+, capital simulation agrees.",
+  "params": {
+    "min_score": 60,
+    "rsi_low": 45,
+    "rsi_high": 65,
+    "vol_mult": 1.2,
+    "near_high_pct": 0.97,
+    "stop_atr": 1.5,
+    "target_atr": 3.0,
+    "trail_atr": 0.0,
+    "max_hold_days": 22,
+    "regime_filter": 1,
+    "rs_filter": 1,
+    "rs_lookback": 63
+  },
+  "oos_win_rate_pct": 39.2,
+  "oos_avg_ret_pct": 0.182
+}
