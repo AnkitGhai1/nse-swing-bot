@@ -73,10 +73,10 @@ def main():
         note += (f"\nIntraday alerts alone: {s_intra['wins']}/{s_intra['total_closed']} wins "
                  f"({s_intra['win_rate_pct']}%), P&L ₹{s_intra['total_pnl']}")
     send_message(format_summary(s_all, len(new), note.strip()))
-    flush_alarms()
 
-    save_signals(rows)
+    save_signals(rows)          # save the trade log first...
     print("[done] signals.csv updated.")
+    flush_alarms()              # ...then ring (each alarm has a hard time limit)
 
 
 if __name__ == "__main__":

@@ -26,7 +26,12 @@ DEFAULTS = {
     "telegram_bot_token": "",
     "telegram_chat_id": "",
 
-    # Alarm channel 1 (free): CallMeBot rings you with a real Telegram voice call
+    # Alarm channel 1 (FREE, recommended): ntfy app urgent push that keeps ringing
+    # until you open it. Pick a long random topic name -- it acts as a password.
+    "ntfy_topic": "",
+    "ntfy_server": "https://ntfy.sh",
+
+    # Legacy alarm (no longer free): CallMeBot Telegram voice call
     "callmebot_user": "",            # your Telegram @username
     "callmebot_voice": "en-IN-Standard-A",
 
@@ -46,6 +51,7 @@ ENV_MAP = {
     "TELEGRAM_BOT_TOKEN": ("telegram_bot_token", str),
     "TELEGRAM_CHAT_ID": ("telegram_chat_id", str),
     "CALLMEBOT_USER": ("callmebot_user", str),
+    "NTFY_TOPIC": ("ntfy_topic", str),
     "CALLMEBOT_VOICE": ("callmebot_voice", str),
     "PUSHOVER_APP_TOKEN": ("pushover_app_token", str),
     "PUSHOVER_USER_KEY": ("pushover_user_key", str),

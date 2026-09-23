@@ -10,7 +10,8 @@
   "telegram_bot_token": "PASTE_YOUR_BOT_TOKEN_HERE",
   "telegram_chat_id": "PASTE_YOUR_CHAT_ID_HERE",
 
-  "callmebot_user": "@your_telegram_username",
+  "ntfy_topic": "",
+  "callmebot_user": "",
   "callmebot_voice": "en-IN-Standard-A",
 
   "pushover_app_token": "",

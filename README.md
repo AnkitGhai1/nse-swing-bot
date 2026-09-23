@@ -11,9 +11,8 @@ sized to your capital (default **₹40,000**). It:
   its rules**, but only when the new rules hold up on data they were
   never tuned on (walk-forward testing), which guards against overfitting.
 - **Alerts that are hard to miss at the office:** a Telegram message with
-  full details, plus an **actual Telegram voice call** that reads the alert
-  aloud (free, via CallMeBot) and/or a **Pushover emergency alarm** that keeps
-  ringing until you tap "Acknowledge", even on silent.
+  full details, plus an **alarm that keeps ringing until you look** — free
+  via the **ntfy** app, or via **Pushover** (~US$5 once).
 - **Tracks its own live accuracy** in `signals.csv`, split by end-of-day and
   intraday picks.
 
@@ -30,8 +29,9 @@ sized to your capital (default **₹40,000**). It:
 | Yahoo Finance data (via yfinance) | **Free**, no account |
 | NSE official bhavcopy | **Free**, public exchange file |
 | Telegram bot + messages | **Free**, unlimited |
-| CallMeBot voice calls | **Free** for personal use |
-| Pushover alarm app | **Optional** — 30-day free trial, then about US$5 (~₹450) **once**, not a subscription. Skip it and use CallMeBot instead. |
+| ntfy alarm app | **Free**, no account |
+| Pushover alarm app | **Optional** — 30-day free trial, then about US$5 (~₹450) **once**, not a subscription. Skip it and use ntfy instead. |
+| CallMeBot voice calls | **No longer free** — its bot now charges Telegram Stars per message. Not recommended. |
 | This bot | Free, it's just your own code |
 
 The only unavoidable money is your **broker's charges on trades you choose to
@@ -232,20 +232,16 @@ phone doesn't need to be on, and you don't need a server.
 
 ### 2. Alarms (pick one or both)
 
-**A) Free: a real Telegram voice call (CallMeBot)**
-1. Make sure your Telegram account has a **username** (Settings → Username).
-2. Authorise CallMeBot: open **@CallMeBot_txtbot** in Telegram and send
-   `/start` (or use the login link on callmebot.com's Telegram-call page).
-3. Your secret is just your username, e.g. `@ankit_xyz`.
-4. Test it: open
-   `https://api.callmebot.com/start.php?user=@YOURNAME&text=test+call&lang=en-IN-Standard-A`
-   in a browser. Your phone should ring with a Telegram call.
-
-   Notes: it's a free public service, so it can occasionally be slow or
-   busy. The bot combines everything from one run into **one** call. On
-   iPhone, CallMeBot notes a bug where the voice may not play when you answer
-   (the ring still works). If the Indian-English voice fails, set the voice
-   to `en-GB-Standard-B`.
+**A) Free: ntfy (recommended)**
+1. Install the **ntfy** app (Play Store / App Store). No account needed.
+2. Make up a long, random topic name, e.g. `ankit-nse-7kq2x9mz4`. Anyone who
+   knows it could read your alerts, so treat it like a password.
+3. In the app tap **+**, type that topic name, and subscribe.
+4. In the app's **Settings**, turn on **"Keep alerting for highest
+   priority"**. The bot sends alerts at the highest priority, so they now
+   keep ringing until you open the app, even in Do Not Disturb.
+5. Add the topic name as the GitHub secret `NTFY_TOPIC` (or `ntfy_topic` in
+   `config.json`).
 
 **B) Most reliable: Pushover emergency alarm (~US$5 one-time after a 30-day trial)**
 1. Install **Pushover** on your phone and create an account. Your **User
@@ -317,7 +313,8 @@ job may override them via `params.json`; don't edit that file by hand.
 | `rules.py` | The trading rules (shared by live + backtest) |
 | `screener.py` | Applies rules to the latest candle, sizes positions |
 | `tracker.py` | Open positions, exits, live accuracy |
-| `notify.py` | Telegram, CallMeBot call, Pushover alarm |
+| `notify.py` | Telegram, ntfy / Pushover alarms (CallMeBot legacy) |
+| `test_alerts.py` | Sends a test through every alert channel and explains failures |
 | `settings.py` | Loads config.json / GitHub secrets |
 | `sources.py` | Yahoo / NSE bhavcopy / Stooq adapters |
 | `data.py` | Picks a working source, caches, cross-checks against NSE |
@@ -330,8 +327,9 @@ job may override them via `params.json`; don't edit that file by hand.
 - **Scheduled runs never start (private repo):** make the repo public; or
   push any small change (commits can "wake" the scheduler); or turn Actions
   off and on in Settings → Actions.
-- **No alerts:** check the run log in the Actions tab; "Telegram not
-  configured" means a secret name is misspelled.
+- **No alerts:** run **Actions → Test alerts → Run workflow** and read its
+  log. It says exactly what's wrong (bad token, wrong chat ID, bot never
+  started) and how to fix it.
 - **A stock never shows up:** it may have been renamed or delisted; edit
   `universe.py`.
 

@@ -146,8 +146,8 @@ def main():
     else:
         print(f"[intraday] scan skipped (enabled={enabled}, window={in_window}, budget={budget}).")
 
+    save_signals(rows)          # save the trade log first, then ring
     flush_alarms()
-    save_signals(rows)
 
 
 if __name__ == "__main__":

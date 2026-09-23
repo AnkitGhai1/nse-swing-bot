@@ -3,18 +3,25 @@ Alerts.
 
 Two layers:
   * send_message()  -> detailed Telegram message (always, if configured)
-  * alarm()         -> something that's hard to miss at the office:
-        - CallMeBot:  a REAL Telegram voice call that rings your phone and
-                      reads the alert aloud (free). Telegram bots can't call
-                      you themselves; CallMeBot is a separate free service
-                      that can.
-        - Pushover:   an "emergency" push that re-rings every minute (default)
-                      until you tap Acknowledge, and bypasses silent/Do Not
-                      Disturb. Most reliable option; the app costs ~US$5 once.
-    Configure either or both; alarm() uses whatever is set up.
+  * alarm()         -> something that's hard to miss at the office. Uses every
+                       channel you've configured:
+        - ntfy (FREE, recommended): an "urgent" push to the free ntfy app.
+          With the app's "Keep alerting for highest priority" setting on, it
+          keeps ringing until you open the app -- even in Do Not Disturb.
+        - Pushover (~US$5 once): emergency push that re-rings every minute
+          until you tap Acknowledge, bypasses silent/DND.
+        - CallMeBot (legacy): a Telegram voice call. Its bot now charges
+          Telegram Stars to start a chat, so it's no longer free -- kept only
+          for people already set up. Hard 60-second cap so it can never hang
+          a run.
 
-notify(event, detailed_text, spoken_text) does both in one call.
+Every network call here has a hard time limit, and the scripts save
+signals.csv BEFORE ringing alarms, so a slow alarm service can never lose
+your trade log.
 """
+
+import threading
+import time
 
 import requests
 
@@ -30,57 +37,112 @@ def cfg():
     return _cfg
 
 
+def _hard_deadline(fn, seconds: float, label: str):
+    """Run fn() but give up after `seconds` of WALL-CLOCK time. (A plain
+    requests timeout only limits silence between bytes, so a service that
+    trickles output can hold a connection open for many minutes.)"""
+    result = {"ok": False}
+
+    def run():
+        try:
+            result["ok"] = bool(fn())
+        except Exception as e:
+            print(f"[notify] {label} error: {e}")
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(seconds)
+    if t.is_alive():
+        print(f"[notify] {label}: no answer within {seconds:.0f}s -- skipped, carrying on.")
+        return False
+    return result["ok"]
+
+
 # --------------------------------------------------------------------------- #
-# Channels
+# Telegram
 # --------------------------------------------------------------------------- #
+TELEGRAM_HINTS = {
+    401: "Bot token is wrong -- re-copy it from @BotFather into the TELEGRAM_BOT_TOKEN secret.",
+    404: "Bot token is wrong or incomplete -- re-copy it from @BotFather (no spaces).",
+    403: "The bot is blocked or you never pressed Start -- open your bot in Telegram and tap Start.",
+}
+
+
+def telegram_diagnose(status: int, body: str) -> str:
+    b = body.lower()
+    if "chat not found" in b:
+        return ("Chat ID is wrong, or you never sent your bot a message. Open your bot in "
+                "Telegram, tap Start / send 'hi', then re-check the number from getUpdates.")
+    if "can't parse entities" in b:
+        return "Message formatting error (retried as plain text)."
+    return TELEGRAM_HINTS.get(status, "")
+
+
 def send_message(text: str) -> bool:
     c = cfg()
-    if not c["telegram_bot_token"] or not c["telegram_chat_id"]:
-        print("[notify] Telegram not configured -- printing instead:\n" + text)
+    token, chat = str(c.get("telegram_bot_token", "")).strip(), str(c.get("telegram_chat_id", "")).strip()
+    if not token or not chat:
+        print("[notify] Telegram NOT configured (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secret "
+              "missing or misspelled) -- message printed here instead:\n" + text)
         return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat, "text": text[:4000], "parse_mode": "HTML",
+               "disable_web_page_preview": True}
     try:
-        r = requests.post(
-            f"https://api.telegram.org/bot{c['telegram_bot_token']}/sendMessage",
-            json={"chat_id": c["telegram_chat_id"], "text": text, "parse_mode": "HTML",
-                  "disable_web_page_preview": True},
-            timeout=20,
-        )
+        r = requests.post(url, json=payload, timeout=(10, 20))
+        if r.status_code == 400 and "parse entities" in r.text.lower():
+            payload.pop("parse_mode")                        # retry as plain text
+            payload["text"] = (text.replace("<b>", "").replace("</b>", "")
+                               .replace("<i>", "").replace("</i>", ""))[:4000]
+            r = requests.post(url, json=payload, timeout=(10, 20))
         if r.status_code != 200:
-            print(f"[notify] Telegram failed: {r.status_code} {r.text[:200]}")
-        return r.status_code == 200
+            print(f"[notify] Telegram FAILED ({r.status_code}): {r.text[:200]}")
+            hint = telegram_diagnose(r.status_code, r.text)
+            if hint:
+                print(f"[notify] -> Fix: {hint}")
+            return False
+        print("[notify] Telegram message sent.")
+        return True
     except Exception as e:
         print(f"[notify] Telegram error: {e}")
         return False
 
 
-def callmebot_call(spoken: str) -> bool:
+# --------------------------------------------------------------------------- #
+# Alarm channels
+# --------------------------------------------------------------------------- #
+def ntfy_alarm(title: str, message: str) -> bool:
     c = cfg()
-    user = c.get("callmebot_user", "").strip()
-    if not user:
+    topic = str(c.get("ntfy_topic", "")).strip()
+    if not topic:
         return False
-    if not user.startswith("@") and not user.startswith("+"):
-        user = "@" + user
-    try:
-        r = requests.get(
-            "https://api.callmebot.com/start.php",
-            params={"user": user, "text": spoken[:250], "lang": c["callmebot_voice"],
-                    "rpt": 2, "cc": "missed"},
-            timeout=60,
+    server = str(c.get("ntfy_server", "https://ntfy.sh")).rstrip("/")
+
+    def go():
+        r = requests.post(
+            f"{server}/{topic}",
+            data=message.encode("utf-8"),
+            headers={"Title": title.replace("₹", "Rs ").replace("—", "-")
+                                   .encode("ascii", "ignore").decode()[:200] or "Stock alert",
+                     "Priority": "5", "Tags": "rotating_light,chart_with_upwards_trend"},
+            timeout=(10, 20),
         )
-        ok = r.status_code == 200
-        if not ok:
-            print(f"[notify] CallMeBot failed: {r.status_code} {r.text[:200]}")
-        return ok
-    except Exception as e:
-        print(f"[notify] CallMeBot error: {e}")
-        return False
+        if r.status_code != 200:
+            print(f"[notify] ntfy failed: {r.status_code} {r.text[:200]}")
+        return r.status_code == 200
+
+    ok = _hard_deadline(go, 30, "ntfy")
+    if ok:
+        print("[notify] ntfy alarm sent.")
+    return ok
 
 
 def pushover_emergency(title: str, message: str) -> bool:
     c = cfg()
     if not c.get("pushover_app_token") or not c.get("pushover_user_key"):
         return False
-    try:
+
+    def go():
         r = requests.post(
             "https://api.pushover.net/1/messages.json",
             data={
@@ -91,30 +153,56 @@ def pushover_emergency(title: str, message: str) -> bool:
                 "expire": min(10800, int(c["pushover_expire_sec"])),
                 "sound": "persistent",
             },
-            timeout=20,
+            timeout=(10, 20),
         )
-        ok = r.status_code == 200
-        if not ok:
+        if r.status_code != 200:
             print(f"[notify] Pushover failed: {r.status_code} {r.text[:200]}")
-        return ok
-    except Exception as e:
-        print(f"[notify] Pushover error: {e}")
+        return r.status_code == 200
+
+    ok = _hard_deadline(go, 30, "Pushover")
+    if ok:
+        print("[notify] Pushover alarm sent.")
+    return ok
+
+
+def callmebot_call(spoken: str) -> bool:
+    c = cfg()
+    user = str(c.get("callmebot_user", "")).strip()
+    if not user:
         return False
+    if not user.startswith("@") and not user.startswith("+"):
+        user = "@" + user
+
+    def go():
+        r = requests.get(
+            "https://api.callmebot.com/start.php",
+            params={"user": user, "text": spoken[:250], "lang": c["callmebot_voice"],
+                    "rpt": 2, "cc": "missed"},
+            timeout=(10, 20),
+        )
+        body = r.text.lower()
+        if r.status_code != 200 or "error" in body:
+            print(f"[notify] CallMeBot problem: {r.text[-300:]}")
+            return False
+        return True
+
+    return _hard_deadline(go, 60, "CallMeBot")
 
 
 def alarm(title: str, spoken: str) -> bool:
     """Ring now via every configured alarm channel."""
-    a = pushover_emergency(title, spoken)
-    b = callmebot_call(spoken)
-    return a or b
+    a = ntfy_alarm(title, spoken)
+    b = pushover_emergency(title, spoken)
+    d = callmebot_call(spoken)
+    return a or b or d
 
 
-_pending = []   # alarms queued during a run -> ONE call at the end (flush_alarms)
+_pending = []   # alarms queued during a run -> ONE ring at the end (flush_alarms)
 
 
 def notify(event: str, detailed: str, title: str, spoken: str) -> None:
     """Telegram message now; alarm queued so several events in one run ring
-    you once instead of several back-to-back calls."""
+    you once instead of several times back to back."""
     send_message(detailed)
     if event in cfg().get("alarm_events", []):
         short = title.split(" @ ")[0].replace(" — ", ", ")
@@ -133,6 +221,7 @@ def flush_alarms() -> None:
         spoken = f"You have {len(_pending)} stock alerts. " + ". ".join(shorts) + ". Check Telegram."
         if len(spoken) > 250:
             spoken = f"You have {len(_pending)} stock alerts, including {shorts[0]}. Check Telegram now."
+        ntfy_alarm(title, "\n".join(p[1] for p in _pending))
         pushover_emergency(title, "\n".join(p[1] for p in _pending))
         callmebot_call(spoken)
     _pending.clear()
