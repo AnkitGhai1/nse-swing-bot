@@ -1,22 +1,22 @@
 {
-  "generated": "2026-09-23",
-  "adopted_tuned": false,
+  "generated": "2026-09-26",
+  "adopted_tuned": true,
   "edge_ok": true,
-  "reason": "Kept default rules \u2014 self-tuning failed: profitable after costs, profit factor > 1, edge/day beats defaults by 10%+, capital simulation agrees.",
+  "reason": "Self-tuned rules adopted: beat defaults on unseen data (edge 0.051%/day vs 0.034%/day; typical capital \u20b949,159 vs \u20b947,624).",
   "params": {
-    "min_score": 60,
+    "min_score": 70,
     "rsi_low": 45,
     "rsi_high": 65,
     "vol_mult": 1.2,
     "near_high_pct": 0.97,
-    "stop_atr": 1.5,
-    "target_atr": 3.0,
+    "stop_atr": 2.0,
+    "target_atr": 4.0,
     "trail_atr": 0.0,
     "max_hold_days": 22,
-    "regime_filter": 1,
+    "regime_filter": 0,
     "rs_filter": 1,
     "rs_lookback": 63
   },
-  "oos_win_rate_pct": 44.0,
-  "oos_avg_ret_pct": 0.613
+  "oos_win_rate_pct": 39.7,
+  "oos_avg_ret_pct": 0.57
 }
