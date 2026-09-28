@@ -1,1 +1,2 @@
 id,date_suggested,ticker,sector,source,entry_price,stop_initial,stop_loss,atr_entry,target,qty,capital_used,status,exit_price,exit_date,pnl,pnl_pct,holding_days,reasons
+1,2026-09-28,COALINDIA,Metal,daily,422.5,407.31,407.31,7.59,452.88,31,13097.5,OPEN,,,,,0,"uptrend (price>SMA50, SMA20>SMA50); RSI 55 in healthy zone; MACD bullish; near 20-day high (breakout zone); outperforming NIFTY"
