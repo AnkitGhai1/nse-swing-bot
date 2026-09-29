@@ -34,8 +34,12 @@ HOW IT STAYS HONEST
   * Scored only on the period AFTER the first 2 years, which the ML models
     never trained on. Rule strategies use textbook settings -- nothing is
     tuned on this data.
-  * "Beats luck?" = better than 95% of the random-entry runs.
-  * Split into two halves: an idea that only worked in one half is fragile.
+  * Ranked by market-beating edge (return above NIFTY over the same days,
+    per month of money tied up) at its pessimistic 90% bound, measured on
+    monthly averages because overlapping trades move together.
+  * Must beat 95% of random-entry runs AND be positive in both halves.
+  * Growth is also simulated with 10 slots (research mode), which depends far
+    less on which few trades happened to fit into your 3 slots.
   * Many ideas are tested, so the best one is partly lucky by construction.
     The report says how much luck alone can produce.
 """
@@ -537,23 +541,50 @@ def run_ml(feats: dict, folds, n_seeds: int, eval_start):
 # --------------------------------------------------------------------------- #
 # Evaluation
 # --------------------------------------------------------------------------- #
-def evaluate(tr: pd.DataFrame, start, mid, cfg) -> dict:
+RESEARCH_SLOTS = 10
+
+
+def excess_returns(tr: pd.DataFrame, ic: pd.Series) -> np.ndarray:
+    """Each trade's after-cost return minus what NIFTY did over the same days.
+    0 = no better than just holding the index."""
+    iv, vals = ic.index.values, ic.values
+
+    def at(d):
+        pos = np.searchsorted(iv, d.values, side="right") - 1
+        return vals[np.clip(pos, 0, len(iv) - 1)]
+    return tr["ret_pct"].values - (at(tr["exit_date"]) / at(tr["signal_date"]) - 1) * 100
+
+
+def evaluate(tr: pd.DataFrame, start, mid, cfg, ic: pd.Series, mc_runs: int = MC_RUNS) -> dict:
     tr = tr[tr["signal_date"] >= start]
     m = trade_metrics(tr)
     if not m.get("trades"):
         return {"trades": 0}
-    pf = portfolio_mc(tr, cfg["capital"], cfg["max_open_positions"], cfg["risk_pct_per_trade"],
-                      runs=MC_RUNS, max_per_sector=cfg.get("max_per_sector", 1))
-    h1 = tr[tr["signal_date"] < mid]["ret_pct"]
-    h2 = tr[tr["signal_date"] >= mid]["ret_pct"]
+    ex = excess_returns(tr, ic)
+    hold = max(float(tr["hold_days"].mean()), 1.0)
+    scale = 21 / hold                                  # per month (21 trading days) of money tied up
+    # trades that overlap in time move together, so the uncertainty is measured
+    # on MONTHLY averages, not on individual trades (which would overstate confidence)
+    months = tr["entry_date"].dt.to_period("M").values
+    mm = pd.Series(ex).groupby(months).mean()
+    se = float(mm.std(ddof=1) / math.sqrt(len(mm))) if len(mm) > 2 else float("nan")
+    first_half = (tr["signal_date"] < mid).values
+    h1, h2 = ex[first_half], ex[~first_half]
+    kw = dict(max_per_sector=cfg.get("max_per_sector", 1))
+    p3 = portfolio_mc(tr, cfg["capital"], cfg["max_open_positions"], cfg["risk_pct_per_trade"],
+                      runs=mc_runs, **kw)
+    p10 = portfolio_mc(tr, cfg["capital"], RESEARCH_SLOTS, cfg["risk_pct_per_trade"],
+                       runs=mc_runs, **kw)
     return {
         "trades": m["trades"], "win_rate_pct": m["win_rate_pct"], "avg_ret_pct": m["avg_ret_pct"],
-        "profit_factor": m["profit_factor"], "avg_hold_days": m["avg_hold_days"],
-        "h1_avg_ret": round(h1.mean(), 2) if len(h1) else None,
-        "h2_avg_ret": round(h2.mean(), 2) if len(h2) else None,
-        "cagr_pct": pf["cagr_pct"], "end_capital": pf["end_capital"],
-        "end_capital_worst10": pf["end_capital_worst10"], "max_dd_pct": pf["max_drawdown_pct"],
-        "trades_taken": pf["trades_taken"],
+        "avg_hold_days": m["avg_hold_days"],
+        "edge_month": round(float(ex.mean()) * scale, 2),
+        "edge_lo": round((float(ex.mean()) - 1.645 * se) * scale, 2) if np.isfinite(se) else None,
+        "h1_edge": round(float(h1.mean()), 2) if len(h1) else None,
+        "h2_edge": round(float(h2.mean()), 2) if len(h2) else None,
+        "cagr10": p10["cagr_pct"], "dd10": p10["max_drawdown_pct"],
+        "cagr_pct": p3["cagr_pct"], "end_capital_worst10": p3["end_capital_worst10"],
+        "max_dd_pct": p3["max_drawdown_pct"],
     }
 
 
@@ -565,10 +596,28 @@ def avg_seeds(results: list) -> dict:
     for k in ok[0]:
         vals = [r[k] for r in ok if r.get(k) is not None]
         out[k] = round(float(np.mean(vals)), 2) if vals else None
-    cg = [r["cagr_pct"] for r in ok]
-    out["cagr_spread"] = f"{min(cg):.1f}..{max(cg):.1f}" if len(ok) > 1 else ""
+    lo = [r["edge_lo"] for r in ok if r.get("edge_lo") is not None]
+    if lo:
+        out["edge_lo"] = round(float(min(lo)), 2)     # be pessimistic across seeds / variants
+    ed = [r["edge_month"] for r in ok]
+    out["spread"] = f"{min(ed):.2f}..{max(ed):.2f}" if len(ok) > 1 else ""
     out["seeds"] = len(ok)
     return out
+
+
+def verdict(r: dict, luck_edge95: float, luck10_95: float, nifty: float) -> str:
+    if not r.get("trades"):
+        return ""
+    h1, h2 = r.get("h1_edge"), r.get("h2_edge")
+    both = h1 is not None and h2 is not None and h1 > 0 and h2 > 0
+    beats_luck = (r.get("edge_month") or -99) > luck_edge95
+    lo_ok = (r.get("edge_lo") or -99) > 0
+    growth_ok = (r.get("cagr10") or -99) > max(nifty, luck10_95)
+    if both and beats_luck and lo_ok and growth_ok:
+        return "✅"
+    if both and beats_luck:
+        return "🟡"
+    return "❌"
 
 
 def nifty_stats(idx: pd.DataFrame, start):
@@ -663,69 +712,72 @@ def main():
         return to_df(rows)
 
     results = []   # dicts with name, group, metrics
+    ic = idx["Close"].dropna()
+    ev = lambda tr, runs=MC_RUNS: evaluate(tr, eval_start, mid, cfg, ic, runs)
 
     for name, (grp, fn) in RULES.items():
-        r = evaluate(run_rule(fn), eval_start, mid, cfg)
+        r = ev(run_rule(fn))
         results.append({"name": name, "group": grp, **r})
-        print(f"[lab] {name}: {r.get('trades', 0)} trades, CAGR {r.get('cagr_pct')}%")
+        print(f"[lab] {name}: {r.get('trades', 0)} trades, edge {r.get('edge_month')}%/month")
 
     fam_rows = []
     for fam, pairs in cross_families().items():
         for fa, sl in pairs:
-            r = evaluate(run_rule(make_cross(fa, sl)), eval_start, mid, cfg)
+            r = ev(run_rule(make_cross(fa, sl)))
             fam_rows.append({"family": fam, "pair": f"{fa}/{sl}", **r})
     fam_df = pd.DataFrame(fam_rows)
     for fam, g in fam_df.groupby("family", sort=False):
         results.append({"name": f"SMA crossover — {fam} lookbacks ({', '.join(g['pair'])})",
-                        "group": "numbers", **avg_seeds(g.drop(columns=["family", "pair"]).to_dict("records"))})
+                        "group": "numbers",
+                        **avg_seeds(g.drop(columns=["family", "pair"]).to_dict("records"))})
     print(f"[lab] crossover families done ({time.time() - t0:.0f}s)")
 
-    # random-entry controls
-    # Two exit styles, because "let winners run" exits behave differently from
-    # fixed targets even with random entries; the luck line uses the tougher one.
-    rnd_cagr, rnd_avg, p95s = [], [], []
+    # Random-entry controls, two exit styles ("let winners run" behaves differently
+    # from fixed targets even with random entries). Luck lines use the tougher style.
     styles = {"fixed target": {}, "trailing": dict(stop_atr=2.0, target_atr=None, trail_atr=3.0, hold=60)}
+    rnd = []
     for style, kw in styles.items():
-        cg = []
         for sd in range(RANDOM_SEEDS):
             rng = np.random.default_rng(1000 + sd)
             rows = []
             for t, F in feats.items():
                 ent = (rng.random(len(F)) < 0.02) & ready(F)
                 rows += simulate(t, F, ent, rng.random(len(F)) * 100, **kw)
-            r = evaluate(to_df(rows), eval_start, mid, cfg)
-            cg.append(r["cagr_pct"])
-            rnd_avg.append(r["avg_ret_pct"])
-        p95s.append(float(np.percentile(cg, 95)))
-        rnd_cagr += cg
-    luck95 = max(p95s)
-    luck = {"median": float(np.median(rnd_cagr)), "p95": luck95, "max": float(np.max(rnd_cagr)),
-            "min": float(np.min(rnd_cagr)), "avg_ret_median": float(np.median(rnd_avg))}
-    results.append({"name": f"Random entries ({2 * RANDOM_SEEDS} runs, median)", "group": "control",
-                    "cagr_pct": round(luck["median"], 1), "avg_ret_pct": round(luck["avg_ret_median"], 3)})
-    print(f"[lab] random baseline: median CAGR {luck['median']:.1f}%, 95th pct {luck95:.1f}% "
-          f"({time.time() - t0:.0f}s)")
+            rnd.append({"style": style, **ev(to_df(rows), runs=10)})
+    RD = pd.DataFrame(rnd)
+    p95 = lambda col: float(RD.groupby("style")[col].quantile(0.95).max())
+    luck = {"edge_median": float(RD["edge_month"].median()), "edge_p95": p95("edge_month"),
+            "c10_median": float(RD["cagr10"].median()), "c10_p95": p95("cagr10"),
+            "c3_median": float(RD["cagr_pct"].median()), "c3_p95": p95("cagr_pct"),
+            "c3_max": float(RD["cagr_pct"].max())}
+    results.append({"name": f"Random entries ({len(RD)} runs, median)", "group": "control",
+                    "trades": int(RD["trades"].median()),
+                    "edge_month": round(luck["edge_median"], 2),
+                    "cagr10": round(luck["c10_median"], 1), "cagr_pct": round(luck["c3_median"], 1)})
+    print(f"[lab] random baseline: edge 95th pct {luck['edge_p95']:.2f}%/month, "
+          f"10-slot growth 95th pct {luck['c10_p95']:.1f}% ({time.time() - t0:.0f}s)")
 
     importances = None
     if not args.no_ml:
         ml, importances = run_ml(feats, folds, args.seeds, eval_start)
         for name, dfs in ml.items():
-            res = [evaluate(d, eval_start, mid, cfg) for d in dfs]
-            results.append({"name": f"ML: {name}", "group": "ml", **avg_seeds(res)})
+            results.append({"name": f"ML: {name}", "group": "ml", **avg_seeds([ev(d) for d in dfs])})
         print(f"[lab] ML done ({time.time() - t0:.0f}s)")
 
     n_cagr, n_dd, yrs = nifty_stats(idx, eval_start)
-    results.append({"name": "NIFTY 50 buy-and-hold", "group": "control", "cagr_pct": n_cagr,
-                    "max_dd_pct": n_dd})
+    results.append({"name": "NIFTY 50 buy-and-hold", "group": "control", "edge_month": 0.0,
+                    "cagr10": n_cagr, "cagr_pct": n_cagr, "max_dd_pct": n_dd, "dd10": n_dd})
 
     R = pd.DataFrame(results)
-    R["beats_luck"] = R["cagr_pct"] > luck95
-    R["beats_nifty"] = R["cagr_pct"] > n_cagr
-    R = R.sort_values("cagr_pct", ascending=False, na_position="last")
+    R["verdict"] = [verdict(r, luck["edge_p95"], luck["c10_p95"], n_cagr) if g not in ("control",) else ""
+                    for r, g in zip(R.to_dict("records"), R["group"])]
+    R["_rank"] = R["edge_lo"].fillna(R["edge_month"]).fillna(-99)
+    R.loc[R["group"].eq("control"), "_rank"] = -1e9          # yardsticks go last
+    R = R.sort_values("_rank", ascending=False).drop(columns="_rank")
     R.to_csv(os.path.join(HERE, "lab_results.csv"), index=False)
     fam_df.to_csv(os.path.join(HERE, "lab_crossovers.csv"), index=False)
 
-    report = write_report(R, fam_df, luck, n_cagr, n_dd, yrs, eval_start, last, cfg,
+    report = write_report(R, fam_df, luck, n_cagr, n_dd, yrs, eval_start, mid, last, cfg,
                           importances, len(feats), args, time.time() - t0)
     print(report)
     if not args.no_notify and not args.synthetic:
@@ -733,45 +785,63 @@ def main():
         send_message(telegram_text(R, luck, n_cagr, yrs))
 
 
-def write_report(R, fam_df, luck, n_cagr, n_dd, yrs, start, last, cfg, imp, n_stocks, args, secs):
+def _fmt(v, suf="", nd=None, plus=False):
+    if v is None or (isinstance(v, float) and not np.isfinite(v)):
+        return "-"
+    if nd is not None:
+        v = round(float(v), nd)
+    return f"{'+' if plus and v > 0 else ''}{v}{suf}"
+
+
+def write_report(R, fam_df, luck, n_cagr, n_dd, yrs, start, mid, last, cfg, imp, n_stocks, args, secs):
+    slots = cfg["max_open_positions"]
     L = [f"# Strategy lab — {pd.Timestamp.today():%Y-%m-%d}", "",
-         f"{n_stocks} NSE stocks, scored on **{start:%b %Y} – {last:%b %Y}** ({yrs:.1f} years) "
-         f"with your settings: ₹{int(cfg['capital']):,} capital, {cfg['max_open_positions']} slots, "
-         f"{cfg['risk_pct_per_trade'] * 100:.0f}% risk per trade, 0.30% costs per trade."
+         f"{n_stocks} NSE stocks, scored on **{start:%b %Y} – {last:%b %Y}** ({yrs:.1f} years; "
+         f"1st half = {start:%b %Y}–{mid:%b %Y}, 2nd half = {mid:%b %Y}–{last:%b %Y}). "
+         f"₹{int(cfg['capital']):,} capital, {cfg['risk_pct_per_trade'] * 100:.0f}% risk per trade, "
+         f"0.30% costs per trade, entries at the next morning's open."
          + (" **SYNTHETIC TEST DATA — numbers mean nothing.**" if args.synthetic else ""), "",
+         "## How to read this", "",
+         "- **Edge / month** = how much a trade earns *above NIFTY over the same days*, after costs, "
+         "scaled to one month (21 trading days) of money tied up. 0 = no better than holding the "
+         "index. This uses every signal, so it hardly depends on luck with slots.",
+         "- **Worst case** = the edge's lower 90% confidence bound. Trades that overlap in time move "
+         "together, so this is measured on monthly averages to avoid over-confidence. "
+         "**The ranking is by this number.**",
+         "- **1st / 2nd half** = market-beating return per trade in each half. Both must be positive.",
+         f"- **10-slot growth** = yearly growth in a research simulation with {RESEARCH_SLOTS} slots "
+         f"(much less luck than with {slots}). **{slots}-slot growth** = what your real settings "
+         "would have made — noisy, shown for reference only.", "",
+         "**Verdict:** ✅ = beats luck, positive in both halves, worst case above 0, and 10-slot "
+         "growth beats both NIFTY and the luck line · 🟡 = beats luck and positive in both halves, "
+         "but not confidently · ❌ = fails at least one of those.", "",
          "## Yardsticks", "",
          f"- **NIFTY 50 buy-and-hold:** {n_cagr}% a year (worst fall {n_dd}%).",
-         f"- **Pure luck** (random entries, {2 * RANDOM_SEEDS} runs with fixed-target and trailing exits): median "
-         f"{luck['median']:.1f}% a year; 95% of random runs stayed below **{luck['p95']:.1f}%** "
-         f"(the 'luck line'); "
-         f"the single luckiest run made {luck['max']:.1f}%.",
-         "- A strategy is only interesting if it beats **both**.", "",
-         "## Ranking (by typical yearly growth of your capital)", "",
-         "| # | Strategy | Type | Trades | Win % | Avg/trade | 1st half | 2nd half | Yearly growth | Bad-luck ₹ | Worst fall | Beats luck | Beats Nifty |",
-         "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
-    for i, r in enumerate(R.itertuples(index=False), 1):
-        g = lambda k: getattr(r, k, None)
-        def num(k, suf=""):
-            v = g(k)
-            if v is None or (isinstance(v, float) and not np.isfinite(v)):
-                return "-"
-            if k == "trades":
-                v = int(round(v))
-            return f"{v}{suf}"
-        spread = g("cagr_spread")
-        growth = num("cagr_pct", "%") + (f" ({spread})" if isinstance(spread, str) and spread else "")
-        L.append(f"| {i} | {r.name} | {r.group} | {num('trades')} | {num('win_rate_pct')} | "
-                 f"{num('avg_ret_pct', '%')} | {num('h1_avg_ret', '%')} | {num('h2_avg_ret', '%')} | "
-                 f"{growth} | {fmt_money(g('end_capital_worst10')) if g('end_capital_worst10') else '-'} | "
-                 f"{num('max_dd_pct', '%')} | {'✅' if r.beats_luck else '—'} | {'✅' if r.beats_nifty else '—'} |")
-    L += ["", "Yearly growth for ML models is the average over random seeds, with the range "
-          "across seeds in brackets. 1st/2nd half = average return per trade in each half of "
-          "the window; if one is negative the idea is fragile.", "",
+         f"- **Luck** ({RANDOM_SEEDS * 2} random-entry runs): edge median {luck['edge_median']:.2f}%, "
+         f"95th percentile **{luck['edge_p95']:.2f}%/month**; 10-slot growth median "
+         f"{luck['c10_median']:.1f}%, 95th percentile **{luck['c10_p95']:.1f}%/yr**; {slots}-slot growth "
+         f"ranged up to {luck['c3_max']:.1f}%/yr by pure chance.", "",
+         "## Ranking (by worst-case market-beating edge)", "",
+         f"| # | Verdict | Strategy | Type | Trades | Win % | Hold (days) | Edge / month | Worst case "
+         f"| 1st half | 2nd half | 10-slot growth | {slots}-slot growth | Worst fall (10-slot) |",
+         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for i, r in enumerate(R.to_dict("records"), 1):
+        spread = r.get("spread")
+        edge = _fmt(r.get("edge_month"), "%", 2, True) + (f" ({spread})" if isinstance(spread, str) and spread else "")
+        L.append(f"| {i} | {r.get('verdict') or ''} | {r['name']} | {r['group']} | "
+                 f"{_fmt(int(r['trades']) if isinstance(r.get('trades'), (int, float)) and r['trades'] == r['trades'] else None)} | "
+                 f"{_fmt(r.get('win_rate_pct'), '', 1)} | {_fmt(r.get('avg_hold_days'), '', 1)} | {edge} | "
+                 f"{_fmt(r.get('edge_lo'), '%', 2, True)} | {_fmt(r.get('h1_edge'), '%', 2, True)} | "
+                 f"{_fmt(r.get('h2_edge'), '%', 2, True)} | {_fmt(r.get('cagr10'), '%', 1)} | "
+                 f"{_fmt(r.get('cagr_pct'), '%', 1)} | {_fmt(r.get('dd10'), '%', 1)} |")
+    L += ["", "For ML models and the crossover families the numbers are averages over seeds / "
+          "lookback pairs (range of edge in brackets), and the worst case is the weakest one.", "",
           "## Do Fibonacci / prime numbers matter? (SMA crossovers)", "",
-          "| Family | Pair | Trades | Avg/trade | Yearly growth |", "|---|---|---|---|---|"]
-    for r in fam_df.itertuples(index=False):
-        L.append(f"| {r.family} | {r.pair} | {r.trades} | {getattr(r, 'avg_ret_pct', '-')}% | "
-                 f"{getattr(r, 'cagr_pct', '-')}% |")
+          "| Family | Pair | Trades | Edge / month | Worst case | 1st half | 2nd half |", "|---|---|---|---|---|---|---|"]
+    for r in fam_df.to_dict("records"):
+        L.append(f"| {r['family']} | {r['pair']} | {r.get('trades')} | {_fmt(r.get('edge_month'), '%', 2, True)} | "
+                 f"{_fmt(r.get('edge_lo'), '%', 2, True)} | {_fmt(r.get('h1_edge'), '%', 2, True)} | "
+                 f"{_fmt(r.get('h2_edge'), '%', 2, True)} |")
     L += ["", "If the Fibonacci and prime rows look no better than the round and random-number "
           "rows, the 'special numbers' carry no information — only the rough lookback length matters."]
     if imp is not None:
@@ -779,17 +849,15 @@ def write_report(R, fam_df, luck, n_cagr, n_dd, yrs, start, last, cfg, imp, n_st
               "| Feature | Importance |", "|---|---|"]
         for k, v in imp.sort_values(ascending=False).head(15).items():
             L.append(f"| {k} | {v:.3f} |")
-        L += ["", "Compare 'Gradient boosting' with 'Gradient boosting (basic features only)' in the "
-              "ranking: if adding Fourier/Gaussian/Laplacian/Fibonacci/Hurst features doesn't raise "
-              "the out-of-sample result, they aren't adding real information."]
-    L += ["", "## Read this before acting on the ranking", "",
-          f"- {len(R)} ideas were tested. Even if none had any edge, the best of them would look "
-          "good by chance. Treat anything that doesn't clearly beat the 'luck' line with suspicion.",
-          "- Prefer ideas that are positive in **both** halves and beat both yardsticks.",
+        L += ["", "Features starting with idx_ describe the whole market (NIFTY), not the stock. "
+              "Compare 'Gradient boosting' with 'Gradient boosting (basic features only)': if the "
+              "Fourier/Gaussian/Laplacian/Fibonacci/Hurst features don't raise the edge, they add "
+              "no real information."]
+    L += ["", "## Before acting on this", "",
+          f"- {len(R)} rows were tested; the best of many ideas is partly lucky by construction. "
+          "Only ✅ rows deserve attention, and even those should be paper-traded first.",
           "- Survivorship bias: the stock list is today's large caps, which flatters every "
-          "long-only strategy (and buy-and-hold) a little.",
-          "- To switch the live bot to a winning idea, ask for it to be wired in; the weekly "
-          "backtest will then keep checking it.",
+          "long-only strategy a little.",
           f"- Run time {secs / 60:.0f} min."]
     txt = "\n".join(L)
     with open(os.path.join(HERE, "lab_report.md"), "w") as f:
@@ -798,17 +866,24 @@ def write_report(R, fam_df, luck, n_cagr, n_dd, yrs, start, last, cfg, imp, n_st
 
 
 def telegram_text(R, luck, n_cagr, yrs):
-    lines = ["🔬 <b>Strategy lab</b> (unseen period, "
-             f"{yrs:.1f}y)", f"NIFTY buy-and-hold: {n_cagr}%/yr · luck line: {luck['p95']:.1f}%/yr", ""]
+    lines = [f"🔬 <b>Strategy lab</b> ({yrs:.1f}y unseen period)",
+             f"NIFTY: {n_cagr}%/yr · luck line: edge {luck['edge_p95']:.2f}%/month, "
+             f"10-slot {luck['c10_p95']:.1f}%/yr", "",
+             "Ranked by worst-case edge over NIFTY (per month held):"]
     body = R[~R["group"].eq("control")].head(8)
-    for i, r in enumerate(body.itertuples(index=False), 1):
-        mark = "✅" if (r.beats_luck and r.beats_nifty) else ("🟡" if r.beats_luck else "❌")
-        lines.append(f"{i}. {mark} {r.name}: {r.cagr_pct}%/yr, win {r.win_rate_pct}%")
+    for i, r in enumerate(body.to_dict("records"), 1):
+        lines.append(f"{i}. {r.get('verdict') or '❌'} {r['name']}: edge {_fmt(r.get('edge_month'), '%', 2, True)} "
+                     f"(worst {_fmt(r.get('edge_lo'), '%', 2, True)}), halves "
+                     f"{_fmt(r.get('h1_edge'), '%', 2, True)}/{_fmt(r.get('h2_edge'), '%', 2, True)}, "
+                     f"10-slot {_fmt(r.get('cagr10'), '%', 1)}/yr")
     base = R[R["group"].eq("baseline")]
     if len(base):
-        b = base.iloc[0]
-        lines += ["", f"Your current bot: {b['cagr_pct']}%/yr"]
-    lines += ["", "✅ beats luck and Nifty · 🟡 beats luck only · ❌ neither",
+        b = base.iloc[0].to_dict()
+        lines += ["", f"Your current bot: edge {_fmt(b.get('edge_month'), '%', 2, True)}/month, "
+                      f"verdict {b.get('verdict') or '❌'}"]
+    n_ok = int((R["verdict"] == "✅").sum())
+    lines += ["", f"{n_ok} strategy(ies) passed every check.",
+              "✅ robust · 🟡 promising, not confident · ❌ fails a check",
               "Full table: lab_report.md in your repo."]
     return "\n".join(lines)
 

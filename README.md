@@ -206,7 +206,11 @@ through one identical, honest test on 8 years of NSE data and ranks them:
   small neural net. They're trained only on the past and retrained every
   6 months, and each is run with several random seeds.
 - **Yardsticks**: NIFTY 50 buy-and-hold, and a **luck line**, which is how
-  well random entries do. An idea only counts if it beats **both**.
+  well random entries do.
+- **Ranking**: by *edge over NIFTY per month of money tied up*, at its
+  pessimistic (worst-case) estimate. ✅ only if it beats luck, is positive in
+  **both halves** of the period, the worst case is above 0, and a 10-slot
+  research simulation beats NIFTY and luck. 🟡 = promising but not confident.
 
 Everything uses the same costs, next-morning entries and your capital,
 slots and risk. Results go to `lab_report.md` and to Telegram. Nothing in
