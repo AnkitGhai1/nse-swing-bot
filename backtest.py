@@ -464,7 +464,7 @@ def walk_forward(prepped: dict, capital: float, slots: int, risk_pct: float,
                   f"₹{port_t['end_capital']:,} vs ₹{port_d['end_capital']:,}).")
         live = final_params
     else:
-        reason = "Kept default rules — self-tuning failed: " + ", ".join(failed) + "."
+        reason = "Kept default rules — tuned rules did NOT pass: " + ", ".join(failed) + "."
         live = dict(DEFAULT_PARAMS)
     edge_ok = bool(max(t_epd, d_epd) > 0 and max(tuned_m.get("avg_ret_pct", -1),
                                                   default_m.get("avg_ret_pct", -1)) > 0)

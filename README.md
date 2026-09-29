@@ -188,6 +188,30 @@ Read `backtest_report.md` after each weekly run. The key lines are
 
 ---
 
+## Strategy lab: which idea actually works? (manual, optional)
+
+**Actions → Strategy lab → Run workflow** (15–40 min). It puts ~25 ideas
+through one identical, honest test on 8 years of NSE data and ranks them:
+
+- **Your bot's current rules** (the baseline to beat).
+- **Popular strategies**, incl. ones from open-source NSE tools: Minervini
+  trend template (PKScreener-style), Turtle 55-day breakout, Supertrend,
+  Bollinger breakout, RSI(2) mean reversion, 12-1 momentum rotation.
+- **"Natural pattern" ideas**: Fibonacci pullbacks; moving-average crossovers
+  with Fibonacci vs prime vs round vs random-number lookbacks; Fourier-cycle
+  timing; Gaussian-smoothed and Laplacian (curvature) trend turns; a Hurst
+  exponent "is it trending?" filter.
+- **Machine learning**: logistic regression, Gaussian naive Bayes, random
+  forest, gradient boosting (with and without the exotic features) and a
+  small neural net. They're trained only on the past and retrained every
+  6 months, and each is run with several random seeds.
+- **Yardsticks**: NIFTY 50 buy-and-hold, and a **luck line**, which is how
+  well random entries do. An idea only counts if it beats **both**.
+
+Everything uses the same costs, next-morning entries and your capital,
+slots and risk. Results go to `lab_report.md` and to Telegram. Nothing in
+the live bot changes. If an idea clearly wins, ask for it to be wired in.
+
 ## GitHub Actions, explained
 
 GitHub is a free website for storing code. **GitHub Actions** is its free
@@ -310,6 +334,7 @@ job may override them via `params.json`; don't edit that file by hand.
 | `main.py` | End-of-day run |
 | `intraday.py` | Market-hours exit watch + breakout scan |
 | `backtest.py` | Walk-forward backtest + self-tuning |
+| `lab.py` | Strategy lab: compares rule, 'natural pattern' and ML strategies vs luck and NIFTY |
 | `rules.py` | The trading rules (shared by live + backtest) |
 | `screener.py` | Applies rules to the latest candle, sizes positions |
 | `tracker.py` | Open positions, exits, live accuracy |
@@ -322,6 +347,7 @@ job may override them via `params.json`; don't edit that file by hand.
 | `indicators.py`, `universe.py` | Indicator maths; stock list + sector map |
 | `signals.csv` | Every live pick and its outcome (your real track record) |
 | `backtest_report.md`, `backtest_trades.csv`, `params.json` | Written by the weekly job |
+| `lab_report.md`, `lab_results.csv`, `lab_crossovers.csv` | Written by the Strategy lab |
 
 ## Troubleshooting
 - **Scheduled runs never start (private repo):** make the repo public; or
