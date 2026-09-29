@@ -1,0 +1,47 @@
+name: Strategy lab (compare strategies + ML)
+
+# Manual only: Actions -> "Strategy lab" -> Run workflow. Takes ~15-40 min.
+# Results: lab_report.md in the repo + a Telegram summary.
+on:
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: "Random seeds per ML model (more = slower, more reliable)"
+        default: "3"
+      years:
+        description: "Years of history to download"
+        default: "8"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: strategy-lab        # separate from the live bot, so it never blocks intraday runs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt scikit-learn
+
+      - name: Run strategy lab
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CAPITAL: ${{ vars.CAPITAL }}
+        run: python3 lab.py --years "${{ inputs.years }}" --seeds "${{ inputs.seeds }}"
+
+      - name: Save results back to the repo
+        run: |
+          git config user.name "nse-swing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lab_report.md lab_results.csv lab_crossovers.csv
+          git diff --cached --quiet || git commit -m "Strategy lab results [bot]"
+          git pull --rebase --autostash && git push
