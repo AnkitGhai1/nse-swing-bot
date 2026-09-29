@@ -1,0 +1,25 @@
+name,group,trades,win_rate_pct,avg_ret_pct,profit_factor,avg_hold_days,h1_avg_ret,h2_avg_ret,cagr_pct,end_capital,end_capital_worst10,max_dd_pct,trades_taken,cagr_spread,seeds,beats_luck,beats_nifty
+ML: Logistic regression,ml,1634.0,38.5,0.05,1.02,10.4,1.52,-0.14,15.7,81455.0,81455.0,24.2,211.0,,1.0,True,True
+"SMA crossover — Random numbers lookbacks (26/84, 10/33, 32/87, 5/91)",numbers,1226.25,34.0,2.63,1.74,43.12,4.63,0.16,15.28,79826.75,79826.75,22.5,77.75,11.6..18.8,4.0,True,True
+Fourier cycle turn,natural,1932.0,41.8,0.278,1.11,13.8,0.95,-0.51,12.7,71908.0,71908.0,14.3,221.0,,,False,True
+Minervini trend template breakout (PKScreener-style),popular,865.0,34.0,0.479,1.15,21.2,1.67,-0.97,10.3,64437.0,64437.0,21.7,126.0,,,False,True
+ML: Neural network (MLP),ml,2564.67,39.7,0.19,1.07,10.33,0.57,0.02,9.83,63263.33,63263.33,23.47,293.0,8.2..11.7,3.0,False,True
+"SMA crossover — Round lookbacks (10/25, 15/35, 20/50, 30/90)",numbers,1572.5,35.47,2.31,1.67,36.75,4.19,0.0,9.5,62211.5,62211.5,19.98,97.75,6.9..13.8,4.0,False,True
+Bollinger breakout + volume,popular,1895.0,35.1,0.36,1.14,15.7,1.41,-0.81,8.8,60294.0,60294.0,22.4,199.0,,,False,True
+Gaussian-smoothed trend turn,natural,4716.0,30.4,0.076,1.05,8.5,0.41,-0.29,7.4,56633.0,56633.0,26.9,390.0,,,False,True
+"SMA crossover — Prime lookbacks (7/23, 11/37, 19/53, 31/89)",numbers,1668.25,35.95,2.29,1.65,36.7,4.04,0.11,6.0,53112.5,53112.5,23.17,97.75,2.9..7.8,4.0,False,True
+Laplacian (curvature) turn,natural,4421.0,32.3,0.145,1.08,9.3,0.56,-0.34,6.0,53079.0,53079.0,26.8,353.0,,,False,True
+Fibonacci 38-62% pullback,natural,1556.0,40.3,-0.079,0.97,13.4,0.17,-0.38,5.8,52636.0,52636.0,12.8,255.0,,,False,True
+12-1 momentum rotation (monthly),popular,1644.0,49.6,0.397,1.14,17.7,1.42,-0.84,5.8,52482.0,52482.0,7.4,51.0,,,False,True
+Turtle 55-day breakout,popular,1261.0,31.6,1.635,1.49,30.5,3.37,-0.45,5.5,51846.0,51846.0,29.4,102.0,,,False,True
+ML: Gaussian naive Bayes,ml,1688.0,40.7,0.34,1.11,10.8,0.46,0.31,5.4,51502.0,51502.0,26.1,244.0,,1.0,False,True
+NIFTY 50 buy-and-hold,control,,,,,,,,5.0,,,16.5,,,,False,False
+ML: Random forest,ml,1886.0,39.37,0.29,1.1,10.1,1.31,0.08,4.03,48600.67,48600.67,25.53,194.67,0.9..7.1,3.0,False,False
+"Random entries (40 runs, median)",control,,,0.295,,,,,3.8,,,,,,,False,False
+"Supertrend(10,3) flip",popular,1716.0,37.6,1.245,1.33,34.1,3.06,-0.67,3.8,47968.0,47968.0,16.1,89.0,,,False,False
+"SMA crossover — Fibonacci lookbacks (8/21, 13/34, 21/55, 34/89)",numbers,1706.0,35.88,2.19,1.62,36.5,3.89,0.09,0.77,42759.5,42759.5,25.8,111.5,-7.0..8.2,4.0,False,False
+ML: Gradient boosting (basic features only),ml,2905.0,39.87,0.28,1.11,9.97,0.44,0.21,0.73,41386.0,41246.0,32.57,192.0,0.2..1.6,3.0,False,False
+Bot + Hurst trending filter,natural,413.0,40.2,0.084,1.03,8.7,-0.24,0.54,-2.1,36099.0,33685.0,23.0,185.0,,,False,False
+Your bot (current rules),baseline,3353.0,39.3,0.048,1.02,9.6,0.21,-0.13,-2.5,35364.0,30383.0,30.5,208.0,,,False,False
+ML: Gradient boosting,ml,2638.67,39.7,0.27,1.11,9.77,0.75,0.08,-3.9,33594.67,33594.67,34.77,208.0,-8.3..0.7,3.0,False,False
+RSI(2) mean reversion (Connors),popular,3718.0,61.3,0.016,1.01,4.6,0.01,0.02,-4.5,31924.0,31924.0,23.0,609.0,,,False,False
