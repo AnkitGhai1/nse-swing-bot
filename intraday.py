@@ -34,7 +34,7 @@ from rules import add_indicators, load_params, trade_levels
 from screener import Candidate, size_position
 from settings import load_config
 from tracker import (load_signals, save_signals, open_tickers, open_sectors, blocked_tickers,
-                     append_new_signals, update_open_positions, now_ist, today_ist)
+                     append_new_signals, update_open_positions, now_ist, today_ist, track_rows)
 from notify import notify, buy_texts, exit_texts, stop_raised_texts, flush_alarms
 from universe import NIFTY_UNIVERSE, sector_of
 
@@ -128,14 +128,15 @@ def main():
     t = now_ist().time()
     in_window = args.force or (SCAN_FROM <= t <= SCAN_UNTIL)
     today = today_ist().isoformat()
-    held = open_tickers(rows)
+    main_rows = track_rows(rows, crossover=False)     # the trend track has its own slots
+    held = open_tickers(main_rows)
     intraday_today = sum(1 for r in rows if r["date_suggested"] == today and r.get("source") == "intraday")
     slots = cfg["max_open_positions"] - len(held)
     budget = min(slots, cfg["max_new_signals_per_run"] - intraday_today)
 
     from main import edge_ok
     if enabled and in_window and budget > 0 and edge_ok(cfg):
-        cands = scan(p, blocked_tickers(rows, events), open_sectors(rows), force=args.force)
+        cands = scan(p, blocked_tickers(rows, events), open_sectors(main_rows), force=args.force)
         sized = [size_position(c, cfg["capital"], cfg["risk_pct_per_trade"], cfg["max_open_positions"])
                  for c in cands]
         picks = [c for c in sized if c.qty > 0][:budget]

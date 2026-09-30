@@ -623,6 +623,71 @@ def write_outputs(res: dict, years: int) -> str:
     return report
 
 
+def crossover_check(prices: dict, index_df: pd.DataFrame, cfg: dict) -> dict:
+    """Out-of-sample check of the live 20/50 crossover trend track, over the
+    same unseen window as the walk-forward above (everything after the first
+    2 years). Nothing is tuned here: fixed textbook settings."""
+    from indicators import atr as _atr, sma as _sma
+    from lab import simulate, to_df, cross_up, excess_returns
+    fast, slow = int(cfg.get("crossover_fast", 20)), int(cfg.get("crossover_slow", 50))
+    stop_atr = float(cfg.get("crossover_stop_atr", 2.5))
+    hold = int(cfg.get("crossover_max_hold_days", 120))
+    rows, first = [], None
+    for t, df in prices.items():
+        df = df.dropna(subset=["Open", "High", "Low", "Close"])
+        if len(df) < 120:
+            continue
+        first = df.index[0] if first is None else min(first, df.index[0])
+        F = df[["Open", "High", "Low", "Close"]].copy()
+        F["ATR"] = _atr(F, 14)
+        f_, s_ = _sma(F["Close"], fast).values, _sma(F["Close"], slow).values
+        ent = cross_up(f_, s_)
+        ent[: slow + 5] = False
+        rows += simulate(t.replace(".NS", ""), F, ent, np.zeros(len(F)), stop_atr=stop_atr,
+                         target_atr=None, hold=hold, exit_sig=f_ < s_)
+    tr = to_df(rows)
+    if tr.empty or first is None:
+        return {"trades": 0}
+    start = first + timedelta(days=TRAIN_DAYS + 60)
+    tr = tr[tr["signal_date"] >= start]
+    if tr.empty or index_df is None or index_df.empty:
+        return {"trades": len(tr)}
+    m = trade_metrics(tr)
+    ex = excess_returns(tr, index_df["Close"].dropna())
+    scale = 21 / max(float(tr["hold_days"].mean()), 1.0)
+    mid = start + (tr["signal_date"].max() - start) / 2
+    h1 = (tr["signal_date"] < mid).values
+    pf = portfolio_mc(tr, cfg["capital"], int(cfg.get("crossover_slots", 3)), cfg["risk_pct_per_trade"],
+                      max_per_sector=cfg.get("max_per_sector", 1))
+    ic = index_df["Close"].dropna()
+    ic = ic[ic.index >= start]
+    yrs = max((ic.index[-1] - ic.index[0]).days / 365.25, 0.1)
+    return {
+        "setting": f"{fast}/{slow}", "trades": m["trades"], "win_rate_pct": m["win_rate_pct"],
+        "avg_ret_pct": m["avg_ret_pct"], "avg_hold_days": m["avg_hold_days"],
+        "edge_month": round(float(ex.mean()) * scale, 2),
+        "h1_edge": round(float(ex[h1].mean()), 2) if h1.any() else None,
+        "h2_edge": round(float(ex[~h1].mean()), 2) if (~h1).any() else None,
+        "portfolio": pf, "nifty_cagr": round(((ic.iloc[-1] / ic.iloc[0]) ** (1 / yrs) - 1) * 100, 1),
+        "from": f"{start:%b %Y}",
+    }
+
+
+def crossover_text(x: dict, html: bool = True) -> str:
+    if not x.get("trades") or "edge_month" not in x:
+        return "📈 Trend track (20/50 crossover): not enough data to check this week."
+    pf = x["portfolio"]
+    ok = x["edge_month"] > 0 and (x["h1_edge"] or 0) > 0 and (x["h2_edge"] or 0) > 0
+    b = (lambda t: f"<b>{t}</b>") if html else (lambda t: f"**{t}**")
+    return (f"📈 {b('Trend track (' + x['setting'] + ' crossover)')} on unseen data since {x['from']}: "
+            f"{x['trades']} trades, win {x['win_rate_pct']}%, avg hold {x['avg_hold_days']} days\n"
+            f"Edge vs NIFTY: {x['edge_month']:+.2f}%/month held "
+            f"(1st half {x['h1_edge']:+.2f}%, 2nd half {x['h2_edge']:+.2f}% per trade)\n"
+            f"₹{pf['start_capital']:,} → ₹{pf['end_capital']:,} typical (bad luck ₹{pf['end_capital_worst10']:,}), "
+            f"max drawdown {pf['max_drawdown_pct']}% · NIFTY {x['nifty_cagr']}%/yr\n"
+            + ("✅ still holding up" if ok else "⚠️ edge has weakened — keep it on paper"))
+
+
 def telegram_summary(res: dict) -> str:
     m = res["oos_tuned"] if res["adopted"] else res["oos_default"]
     pf = res["portfolio_tuned"] if res["adopted"] else res["portfolio_default"]
@@ -678,9 +743,19 @@ def main():
     print("[bt] A/B testing the upgrades...")
     res["ab"] = ab_test(prepped, slots, mnpd, sec_cap)
     print(write_outputs(res, args.years))
+    print("[bt] checking the 20/50 crossover trend track...")
+    try:
+        xo = crossover_check(prices, index_df, cfg)
+    except Exception as e:                      # never let this break the weekly run
+        print(f"[bt] crossover check failed: {e}")
+        xo = {"trades": 0}
+    with open(os.path.join(HERE, "backtest_report.md"), "a") as f:
+        f.write("\n\n## Trend track (paper): 20/50 moving-average crossover\n\n"
+                + crossover_text(xo, html=False).replace("\n", "  \n") + "\n")
+    print(crossover_text(xo, html=False))
     if not args.no_notify:
         from notify import send_message
-        send_message(telegram_summary(res))
+        send_message(telegram_summary(res) + "\n\n" + crossover_text(xo))
 
 
 if __name__ == "__main__":

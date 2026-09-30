@@ -234,48 +234,73 @@ def _pct(a, b):
     return round((a / b - 1) * 100, 1)
 
 
+def paper() -> bool:
+    return bool(cfg().get("paper_mode", True))
+
+
+PAPER_BANNER = "📝 <b>PAPER TRADE</b> — practice only, don't use real money yet\n"
+
+
 def buy_texts(c):
-    intraday = getattr(c, "source", "daily") == "intraday"
-    label = "⚡ INTRADAY BREAKOUT — BUY" if intraday else "🟢 BUY"
+    src = getattr(c, "source", "daily")
+    intraday, trend = src == "intraday", src == "crossover"
+    label = ("⚡ INTRADAY BREAKOUT — BUY" if intraday else
+             "📈 TREND BUY (20/50 crossover)" if trend else "🟢 BUY")
     when = ("Now, while the breakout holds (use a limit order at or below entry)" if intraday
             else "Tomorrow morning — limit order near entry; skip it if it opens >2% above")
+    if trend:
+        tgt = ("Target: none — ride the trend. Exit when the 20-day average falls back "
+               "below the 50-day (the bot tells you) or at the stop.\n")
+        hold = "Hold: usually 5–8 weeks, up to ~6 months. Expect ~2 of 3 trades to be small losses."
+    else:
+        tgt = f"Target: ₹{c.target}  (+{_pct(c.target, c.entry_price)}%)\n"
+        hold = f"Reward:Risk ≈ {c.reward_risk}:1 | Hold up to 1 month"
     detailed = (
-        f"{label} <b>{c.ticker}</b>\n"
+        (PAPER_BANNER if paper() else "")
+        + f"{label} <b>{c.ticker}</b>\n"
         f"Entry: ₹{c.entry_price}\n"
-        f"Target: ₹{c.target}  (+{_pct(c.target, c.entry_price)}%)\n"
+        + tgt +
         f"Stop-loss: ₹{c.stop_loss}  ({_pct(c.stop_loss, c.entry_price)}%)\n"
         f"Qty: {c.qty}  (≈₹{c.capital_used:,.0f})\n"
-        f"Reward:Risk ≈ {c.reward_risk}:1 | Hold up to 1 month\n"
+        f"{hold}\n"
         f"When: {when}\n"
-        f"Score: {c.score}/100 | RSI: {c.rsi}\n"
+        + ("" if trend else f"Score: {c.score}/100 | ") + f"RSI: {c.rsi}\n"
         f"Why: {c.reasons}\n\n"
         f"<i>Not investment advice. This bot never places trades; you decide.</i>"
     )
-    title = f"{'INTRADAY ' if intraday else ''}BUY {c.ticker} @ ₹{c.entry_price}"
-    spoken = (f"Stock alert. {'Intraday breakout. ' if intraday else ''}Buy {c.ticker}, "
-              f"{c.qty} shares, near {c.entry_price:.0f} rupees. Target {c.target:.0f}. "
-              f"Stop loss {c.stop_loss:.0f}. Check Telegram for details.")
+    pre = "PAPER " if paper() else ""
+    kind = "INTRADAY " if intraday else "TREND " if trend else ""
+    title = f"{pre}{kind}BUY {c.ticker} @ ₹{c.entry_price}"
+    spoken = (f"{'Paper trade' if paper() else 'Stock'} alert. {kind.strip().capitalize() + '. ' if kind else ''}"
+              f"Buy {c.ticker}, {c.qty} shares, near {c.entry_price:.0f} rupees. "
+              + ("" if trend else f"Target {c.target:.0f}. ")
+              + f"Stop loss {c.stop_loss:.0f}. Check Telegram for details.")
     return detailed, title, spoken
 
 
 def exit_texts(event_type: str, row: dict):
     labels = {"TARGET_HIT": "🎯 TARGET HIT", "STOP_HIT": "🔴 STOP-LOSS HIT",
               "TRAIL_STOP": "🟠 TRAILING STOP HIT (profit locked)",
-              "EXPIRED": "⌛ 1-MONTH HOLD OVER"}
+              "TREND_EXIT": "📉 TREND ENDED (20-day average fell below 50-day)",
+              "EXPIRED": "⌛ MAX HOLD PERIOD OVER"}
     action = {"TARGET_HIT": "SELL / book profit", "STOP_HIT": "SELL now to cap the loss",
               "TRAIL_STOP": "SELL — it pulled back from its high",
+              "TREND_EXIT": "SELL tomorrow morning",
               "EXPIRED": "SELL (holding period over)"}[event_type]
+    track = " [trend track]" if row.get("source") == "crossover" else ""
     detailed = (
-        f"{labels[event_type]}: <b>{row['ticker']}</b>\n"
+        (PAPER_BANNER if paper() else "")
+        + f"{labels[event_type]}: <b>{row['ticker']}</b>{track}\n"
         f"Bought: ₹{row['entry_price']}  →  Exit: ₹{row['exit_price']}\n"
         f"P&L: ₹{row['pnl']} ({row['pnl_pct']}%)\n"
         f"Action: {action}\n"
         f"<i>If you had a stop-loss / GTT order in place it may already have executed.</i>"
     )
     words = {"TARGET_HIT": "target hit", "STOP_HIT": "stop loss hit",
-             "TRAIL_STOP": "trailing stop hit", "EXPIRED": "holding period over"}
-    title = f"SELL {row['ticker']} — {words[event_type]}"
-    spoken = (f"Stock alert. Sell {row['ticker']}. {words[event_type].capitalize()}. "
+             "TRAIL_STOP": "trailing stop hit", "TREND_EXIT": "trend ended",
+             "EXPIRED": "holding period over"}
+    title = f"{'PAPER ' if paper() else ''}SELL {row['ticker']} — {words[event_type]}"
+    spoken = (f"{'Paper trade' if paper() else 'Stock'} alert. Sell {row['ticker']}. {words[event_type].capitalize()}. "
               f"Exit price about {float(row['exit_price']):.0f} rupees. Check Telegram.")
     return detailed, title, spoken
 

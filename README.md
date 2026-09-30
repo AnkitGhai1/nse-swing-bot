@@ -188,6 +188,30 @@ Read `backtest_report.md` after each weekly run. The key lines are
 
 ---
 
+## Paper mode and the trend track (new)
+
+**Paper mode (on by default).** Every alert starts with "📝 PAPER TRADE". The
+bot works exactly the same and tracks every alert in `signals.csv`, but the
+label reminds you not to use real money yet. Once a strategy has proven itself
+live over a few months, you can turn the label off with the Actions variable
+`PAPER_MODE` = `false`.
+
+**Trend track: 20/50 moving-average crossover.** This was the only idea that
+held up in both halves of the strategy lab, so it runs as a second, separate
+strategy:
+- **Buy alert** ("📈 TREND BUY") when a stock's 20-day average crosses above
+  its 50-day average on the day's close.
+- **No fixed target.** You ride the trend. The **sell alert** ("📉 TREND
+  ENDED") comes on the evening the 20-day average falls back below the 50-day.
+  There's also a stop at 2.5 × ATR and a safety limit of about 6 months.
+- It has **its own 3 slots** and **its own track record** in the daily summary
+  (source = `crossover` in `signals.csv`), so it never crowds out the main rules.
+- Expect trades lasting 5–8 weeks and about 2 losing trades in every 3. The few
+  big winners carry it.
+- The **weekly backtest** also re-checks this strategy on unseen data and tells
+  you whether its edge over NIFTY is holding up.
+- To switch it off, set the Actions variable `CROSSOVER_ENABLED` = `false`.
+
 ## Strategy lab: which idea actually works? (manual, optional)
 
 **Actions → Strategy lab → Run workflow** (15–40 min). It puts ~25 ideas
@@ -326,7 +350,13 @@ Not needed for the automation, but handy for testing.
 | `max_per_sector` | 1 | Positions allowed from one sector at a time. |
 | `pause_when_no_edge` | true | Pause BUY alerts if the weekly backtest finds no edge. |
 | `intraday_enabled` | true | Market-hours breakout scanner on/off. |
-| `alarm_events` | all actionable | Which events ring an alarm (BUY, INTRADAY_BUY, STOP_HIT, TARGET_HIT, EXPIRED). |
+| `paper_mode` | true | Label every alert PAPER TRADE (GitHub variable `PAPER_MODE`). |
+| `crossover_enabled` | true | Run the 20/50 trend track (GitHub variable `CROSSOVER_ENABLED`). |
+| `crossover_fast` / `crossover_slow` | 20 / 50 | The trend track's moving averages. |
+| `crossover_stop_atr` | 2.5 | Trend-track stop distance in ATRs. |
+| `crossover_max_hold_days` | 120 | Safety limit; the normal exit is the cross back down. |
+| `crossover_slots` | 3 | Trend-track positions at once (separate from `max_open_positions`). |
+| `alarm_events` | all actionable | Which events ring an alarm (BUY, INTRADAY_BUY, CROSSOVER_BUY, STOP_HIT, TARGET_HIT, TREND_EXIT, EXPIRED). |
 
 The trading-rule parameters live in `rules.py` (`DEFAULT_PARAMS`). The weekly
 job may override them via `params.json`; don't edit that file by hand.

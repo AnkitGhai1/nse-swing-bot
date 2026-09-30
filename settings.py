@@ -43,8 +43,26 @@ DEFAULTS = {
     "pushover_expire_sec": 1800,
 
     # which events should ring an alarm (in addition to the Telegram message)
-    "alarm_events": ["BUY", "INTRADAY_BUY", "STOP_HIT", "TARGET_HIT", "EXPIRED"],
+    "alarm_events": ["BUY", "INTRADAY_BUY", "CROSSOVER_BUY", "STOP_HIT", "TARGET_HIT",
+                     "TREND_EXIT", "EXPIRED"],
+
+    # Label every alert "PAPER TRADE" (practice, no real money) until a strategy
+    # has proven itself live. Set to false (or PAPER_MODE=false) to remove the label.
+    "paper_mode": True,
+
+    # Second, separately tracked strategy: 20/50 moving-average crossover
+    # (the only idea that held up in both halves of the strategy lab).
+    "crossover_enabled": True,
+    "crossover_fast": 20,
+    "crossover_slow": 50,
+    "crossover_stop_atr": 2.5,        # stop = entry - 2.5 x ATR(14); no fixed target
+    "crossover_max_hold_days": 120,   # safety limit (~6 months); normal exit is the cross-down
+    "crossover_slots": 3,             # its own slots, separate from the main rules
 }
+
+
+def _bool(v: str) -> bool:
+    return str(v).strip().lower() not in ("false", "0", "no", "off")
 
 ENV_MAP = {
     "CAPITAL": ("capital", float),
@@ -56,6 +74,8 @@ ENV_MAP = {
     "PUSHOVER_APP_TOKEN": ("pushover_app_token", str),
     "PUSHOVER_USER_KEY": ("pushover_user_key", str),
     "MAX_OPEN_POSITIONS": ("max_open_positions", int),
+    "PAPER_MODE": ("paper_mode", _bool),
+    "CROSSOVER_ENABLED": ("crossover_enabled", _bool),
 }
 
 

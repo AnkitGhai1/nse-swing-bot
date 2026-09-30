@@ -17,6 +17,7 @@ from dataclasses import dataclass, asdict
 from typing import List, Optional, Set
 
 from data import download, index_history, verify_against_nse
+from indicators import sma, atr, rsi
 from rules import add_indicators, score_frame, reasons_for_row, trade_levels, load_params
 from universe import sector_of
 
@@ -111,6 +112,65 @@ def run_screener(universe: List[str], capital: float, risk_pct: float,
         if len(picked) >= max_results:
             break
     return picked, note
+
+
+def run_crossover(universe: List[str], capital: float, risk_pct: float, slots: int,
+                  max_results: int, exclude_tickers: Optional[Set[str]] = None,
+                  exclude_sectors: Optional[Set[str]] = None, fast: int = 20, slow: int = 50,
+                  stop_atr: float = 2.5, verify: bool = True):
+    """Trend track: stocks whose fast moving average crossed ABOVE the slow one
+    on today's completed candle. No fixed target -- the exit is the cross back
+    down (checked each evening) or the stop. Strongest vs NIFTY first."""
+    exclude_tickers = exclude_tickers or set()
+    exclude_sectors = exclude_sectors or set()
+    prices = download(universe, period="9mo", interval="1d")
+    index_df = index_history(period="9mo")
+    suspect = set()
+    if verify:
+        suspect, _ = verify_against_nse(prices)
+    ic = None if index_df is None or index_df.empty else index_df["Close"]
+
+    cands = []
+    for t, df in prices.items():
+        bare = t.replace(".NS", "")
+        sec = sector_of(bare)
+        if bare in exclude_tickers or sec in exclude_sectors or t in suspect or len(df) < slow + 5:
+            continue
+        c = df["Close"]
+        f_, s_ = sma(c, fast), sma(c, slow)
+        if not (f_.iloc[-1] > s_.iloc[-1] and f_.iloc[-2] <= s_.iloc[-2]):
+            continue
+        entry = round(float(c.iloc[-1]), 2)
+        atr_val = float(atr(df, 14).iloc[-1])
+        stop = round(entry - stop_atr * atr_val, 2)
+        if stop <= 0 or entry <= stop:
+            continue
+        rs = float(c.pct_change(63).iloc[-1])
+        if ic is not None:
+            icr = ic.reindex(c.index).ffill()
+            rs -= float(icr.pct_change(63).iloc[-1])
+        rs = rs if rs == rs else 0.0
+        cands.append(Candidate(
+            ticker=bare, score=int(round(rs * 100)), close=entry, entry_price=entry,
+            stop_loss=stop, target=0.0, reward_risk=0.0, qty=0, capital_used=0.0,
+            rsi=round(float(rsi(c, 14).iloc[-1]), 1),
+            reasons=(f"{fast}-day average just crossed above the {slow}-day average (trend turning "
+                     f"up); 3-month return vs NIFTY {rs * 100:+.1f}%"),
+            source="crossover", atr_entry=round(atr_val, 2), sector=sec))
+
+    cands.sort(key=lambda x: x.score, reverse=True)
+    picked, used = [], set(exclude_sectors)
+    for cd in cands:
+        if cd.sector in used:
+            continue
+        cd = size_position(cd, capital, risk_pct, slots)
+        if cd.qty <= 0:
+            continue
+        picked.append(cd)
+        used.add(cd.sector)
+        if len(picked) >= max_results:
+            break
+    return picked
 
 
 if __name__ == "__main__":
