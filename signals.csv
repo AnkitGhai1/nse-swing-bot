@@ -4,3 +4,4 @@ id,date_suggested,ticker,sector,source,entry_price,stop_initial,stop_loss,atr_en
 3,2026-09-29,DIVISLAB,Pharma,daily,9431.0,9056.05,9056.05,187.48,10180.91,1,9431.0,STOP_HIT,9056.05,2026-10-14,-374.95,-3.98,10,"uptrend (price>SMA50, SMA20>SMA50); RSI 59 in healthy zone; volume 1.4x 20d avg; near 20-day high (breakout zone); outperforming NIFTY"
 4,2026-10-01,KOTAKBANK,Bank,daily,418.35,400.75,400.75,8.8,453.54,31,12968.85,OPEN,,,,,9,"uptrend (price>SMA50, SMA20>SMA50); RSI 58 in healthy zone; RSI rising; volume 4.7x 20d avg; near 20-day high (breakout zone); outperforming NIFTY"
 5,2026-10-12,HDFCLIFE,Insurance,crossover,559.25,522.51,522.51,14.7,,21,11744.25,OPEN,,,,,3,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +5.2%
+6,2026-10-15,NYKAA,Retail,crossover,338.4,315.37,315.37,9.21,,34,11505.6,OPEN,,,,,0,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +8.6%
