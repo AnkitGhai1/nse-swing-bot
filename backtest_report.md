@@ -1,6 +1,6 @@
-# Backtest report — 10 Oct 2026
+# Backtest report — 17 Oct 2026
 
-**Decision:** Kept default rules — tuned rules did NOT pass: edge/day beats defaults by 10%+, capital simulation agrees.
+**Decision:** Kept default rules — tuned rules did NOT pass: edge/day beats defaults by 10%+.
 
 **Edge check:** passed (profitable on unseen data after costs).
 
@@ -10,8 +10,8 @@ History: ~6 years, 8 walk-forward folds (train on 2 years → test on the next 6
 
 | Rules | Trades | Win rate | Avg/trade | Avg win / loss | Avg hold | Edge per day | Profit factor |
 |---|---|---|---|---|---|---|---|
-| Self-tuned | 151 | 42.4% | 0.373% | 6.4% / -4.06% | 13.7d | 0.0272% | 1.16 |
-| Default | 160 | 41.9% | 0.377% | 5.91% / -3.61% | 10.1d | 0.0373% | 1.18 |
+| Self-tuned | 170 | 39.4% | 0.213% | 6.87% / -4.12% | 12.5d | 0.0171% | 1.09 |
+| Default | 157 | 43.9% | 0.481% | 5.83% / -3.71% | 10.6d | 0.0453% | 1.23 |
 
 ## Your capital, simulated (3 slots, live sizing rules, compounding, 3.8 years)
 
@@ -19,8 +19,8 @@ Median of 60 simulations with shuffled tie-breaks, plus the worst 10%.
 
 | Rules | Typical result | Bad-luck result | CAGR | Max drawdown | Bad-luck drawdown | Trades taken |
 |---|---|---|---|---|---|---|
-| Self-tuned | ₹40,000 → ₹41,636 | ₹34,175 | 1.1% | 26.4% | 33.4% | 163 |
-| Default | ₹40,000 → ₹44,535 | ₹37,806 | 3.2% | 15.4% | 22.1% | 156 |
+| Self-tuned | ₹40,000 → ₹47,279 | ₹40,828 | 4.5% | 29.7% | 35.3% | 169 |
+| Default | ₹40,000 → ₹44,573 | ₹40,186 | 3.2% | 15.5% | 21.6% | 158 |
 
 ## Do the upgrades help? (whole history, trades actually taken)
 
@@ -29,11 +29,11 @@ so read it as a sanity check, not proof.
 
 | Variant | Trades | Win rate | Avg/trade | Edge per day | Profit factor |
 |---|---|---|---|---|---|
-| Default rules (all upgrades on) | 266 | 41.0% | 0.271% | 0.0284% | 1.12 |
-| without market-regime filter | 451 | 39.2% | 0.19% | 0.0205% | 1.07 |
-| without relative-strength filter | 265 | 35.5% | -0.431% | -0.0456% | 0.84 |
-| without trailing stop | 266 | 41.0% | 0.271% | 0.0284% | 1.12 |
-| without sector cap (3 per sector allowed) | 271 | 38.7% | 0.045% | 0.0048% | 1.02 |
+| Default rules (all upgrades on) | 262 | 40.5% | 0.24% | 0.0244% | 1.1 |
+| without market-regime filter | 439 | 39.9% | 0.137% | 0.0144% | 1.05 |
+| without relative-strength filter | 273 | 33.0% | -0.628% | -0.0688% | 0.78 |
+| without trailing stop | 262 | 40.5% | 0.24% | 0.0244% | 1.1 |
+| without sector cap (3 per sector allowed) | 268 | 38.8% | -0.035% | -0.0037% | 0.99 |
 
 ## Adoption checks
 
@@ -41,13 +41,13 @@ so read it as a sanity check, not proof.
 - ✅ profitable after costs
 - ✅ profit factor > 1
 - ❌ edge/day beats defaults by 10%+
-- ❌ capital simulation agrees
+- ✅ capital simulation agrees
 
 ## Overfitting check
 
-- Edge per day in training windows: 0.0519%
-- Edge per day in the unseen windows right after: -0.0274%
-- Retention: -53% (70%+ is healthy; under ~40% means the tuner is mostly fitting noise)
+- Edge per day in training windows: 0.059%
+- Edge per day in the unseen windows right after: -0.0191%
+- Retention: -32% (70%+ is healthy; under ~40% means the tuner is mostly fitting noise)
 - Parameter changes between folds: 3 of 7 (frequent flipping = unstable, less trustworthy)
 
 ## Live parameters now in use
@@ -73,14 +73,14 @@ so read it as a sanity check, not proof.
 
 | Train | Test | Chosen params | Train edge/day | Test trades | Test avg/trade | Test win | Test edge/day | Default test edge/day |
 |---|---|---|---|---|---|---|---|---|
-| 2021-01..2023-01 | 2023-01..2023-07 | min_score=70, stop_atr=1.5, target_atr=4.0, trail_atr=0.0, regime_filter=0, rs_filter=0 | 0.0184% | 25 | 1.508% | 48.0% | 0.1099% | 0.1767% |
-| 2021-07..2023-07 | 2023-07..2024-01 | min_score=70, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=0, rs_filter=1 | 0.0122% | 29 | 1.222% | 48.3% | 0.0913% | 0.0377% |
-| 2022-01..2024-01 | 2024-01..2024-07 | min_score=70, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=0, rs_filter=1 | 0.0031% | 23 | 2.418% | 56.5% | 0.1665% | 0.1015% |
-| 2022-07..2024-07 | 2024-07..2025-01 | min_score=70, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=0, rs_filter=1 | 0.0691% | 23 | -1.052% | 34.8% | -0.0671% | -0.1049% |
-| 2023-01..2025-01 | 2025-01..2025-07 | min_score=50, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=1, rs_filter=1 | 0.1443% | 13 | 0.694% | 46.2% | 0.0422% | 0.0844% |
-| 2023-07..2025-07 | 2025-07..2026-01 | min_score=50, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=1, rs_filter=1 | 0.107% | 20 | -0.903% | 35.0% | -0.082% | 0.0363% |
-| 2024-01..2026-01 | 2026-01..2026-07 | min_score=50, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=1, rs_filter=1 | 0.0575% | 9 | -3.048% | 22.2% | -0.3976% | -0.307% |
-| 2024-07..2026-07 | 2026-07..2026-10 | min_score=60, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=0, rs_filter=0 | 0.0036% | 9 | -1.305% | 22.2% | -0.0827% | -0.0528% |
+| 2021-01..2023-01 | 2023-01..2023-07 | min_score=70, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=0, rs_filter=1 | -0.0425% | 21 | 1.662% | 57.1% | 0.0981% | 0.116% |
+| 2021-07..2023-07 | 2023-07..2024-01 | min_score=70, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=0, rs_filter=1 | -0.0582% | 32 | 2.18% | 53.1% | 0.1865% | 0.1105% |
+| 2022-01..2024-01 | 2024-01..2024-07 | min_score=60, stop_atr=1.5, target_atr=4.0, trail_atr=3.0, regime_filter=0, rs_filter=1 | 0.1325% | 28 | 2.08% | 50.0% | 0.1683% | 0.0341% |
+| 2022-07..2024-07 | 2024-07..2025-01 | min_score=60, stop_atr=1.5, target_atr=4.0, trail_atr=3.0, regime_filter=0, rs_filter=1 | 0.1554% | 38 | -1.721% | 23.7% | -0.1858% | -0.0485% |
+| 2023-01..2025-01 | 2025-01..2025-07 | min_score=50, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=1, rs_filter=1 | 0.129% | 11 | 1.669% | 54.5% | 0.0896% | 0.1053% |
+| 2023-07..2025-07 | 2025-07..2026-01 | min_score=50, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=1, rs_filter=1 | 0.0776% | 20 | -2.309% | 20.0% | -0.1932% | 0.0233% |
+| 2024-01..2026-01 | 2026-01..2026-07 | min_score=50, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=1, rs_filter=1 | 0.0431% | 10 | -2.506% | 30.0% | -0.261% | -0.3299% |
+| 2024-07..2026-07 | 2026-07..2026-10 | min_score=60, stop_atr=2.0, target_atr=4.0, trail_atr=0.0, regime_filter=0, rs_filter=0 | 0.0352% | 10 | -0.845% | 20.0% | -0.0556% | 0.1503% |
 
 ## Caveats
 - Survivorship bias: the stock list is today's large caps, which by definition survived. Real past results would have been somewhat worse.
@@ -89,7 +89,7 @@ so read it as a sanity check, not proof.
 
 ## Trend track (paper): 20/50 moving-average crossover
 
-📈 **Trend track (20/50 crossover)** on unseen data since Dec 2022: 906 trades, win 38.5%, avg hold 42.5 days  
-Edge vs NIFTY: +1.27%/month held (1st half +5.34%, 2nd half +0.03% per trade)  
-₹40,000 → ₹68,792 typical (bad luck ₹58,140), max drawdown 14.9% · NIFTY 5.1%/yr  
-✅ still holding up
+📈 **Trend track (20/50 crossover)** on unseen data since Dec 2022: 913 trades, win 38.4%, avg hold 42.5 days  
+Edge vs NIFTY: +1.25%/month held (1st half +5.39%, 2nd half -0.01% per trade)  
+₹40,000 → ₹72,322 typical (bad luck ₹61,375), max drawdown 14.0% · NIFTY 6.1%/yr  
+⚠️ edge has weakened — keep it on paper
