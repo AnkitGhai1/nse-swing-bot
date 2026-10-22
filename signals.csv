@@ -6,3 +6,4 @@ id,date_suggested,ticker,sector,source,entry_price,stop_initial,stop_loss,atr_en
 5,2026-10-12,HDFCLIFE,Insurance,crossover,559.25,522.51,522.51,14.7,,21,11744.25,STOP_HIT,522.51,2026-10-22,-771.54,-6.57,7,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +5.2%
 6,2026-10-15,NYKAA,Retail,crossover,338.4,315.37,315.37,9.21,,34,11505.6,OPEN,,,,,4,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +8.6%
 7,2026-10-16,HDFCBANK,Bank,crossover,728.85,693.26,693.26,14.24,,18,13119.3,TREND_EXIT,706.95,2026-10-21,-394.2,-3.0,2,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY -6.2%
+8,2026-10-22,TECHM,IT,crossover,1829.1,1696.41,1696.41,53.08,,6,10974.6,OPEN,,,,,0,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +22.7%
