@@ -1,22 +1,22 @@
 {
-  "generated": "2026-10-17",
-  "adopted_tuned": false,
+  "generated": "2026-10-24",
+  "adopted_tuned": true,
   "edge_ok": true,
-  "reason": "Kept default rules \u2014 tuned rules did NOT pass: edge/day beats defaults by 10%+.",
+  "reason": "Self-tuned rules adopted: beat defaults on unseen data (edge 0.064%/day vs 0.050%/day; typical capital \u20b949,870 vs \u20b943,959).",
   "params": {
     "min_score": 60,
     "rsi_low": 45,
     "rsi_high": 65,
     "vol_mult": 1.2,
     "near_high_pct": 0.97,
-    "stop_atr": 1.5,
-    "target_atr": 3.0,
+    "stop_atr": 2.0,
+    "target_atr": 4.0,
     "trail_atr": 0.0,
     "max_hold_days": 22,
-    "regime_filter": 1,
-    "rs_filter": 1,
+    "regime_filter": 0,
+    "rs_filter": 0,
     "rs_lookback": 63
   },
-  "oos_win_rate_pct": 43.9,
-  "oos_avg_ret_pct": 0.481
+  "oos_win_rate_pct": 46.6,
+  "oos_avg_ret_pct": 0.864
 }
