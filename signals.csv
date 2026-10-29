@@ -6,7 +6,8 @@ id,date_suggested,ticker,sector,source,entry_price,stop_initial,stop_loss,atr_en
 5,2026-10-12,HDFCLIFE,Insurance,crossover,559.25,522.51,522.51,14.7,,21,11744.25,STOP_HIT,522.51,2026-10-22,-771.54,-6.57,7,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +5.2%
 6,2026-10-15,NYKAA,Retail,crossover,338.4,315.37,315.37,9.21,,34,11505.6,STOP_HIT,315.37,2026-10-23,-783.02,-6.81,5,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +8.6%
 7,2026-10-16,HDFCBANK,Bank,crossover,728.85,693.26,693.26,14.24,,18,13119.3,TREND_EXIT,706.95,2026-10-21,-394.2,-3.0,2,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY -6.2%
-8,2026-10-22,TECHM,IT,crossover,1829.1,1696.41,1696.41,53.08,,6,10974.6,OPEN,,,,,4,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +22.7%
-9,2026-10-26,JSWSTEEL,Metal,daily,1260.0,1191.47,1191.47,34.26,1397.06,10,12600.0,OPEN,,,,,2,RSI 55 in healthy zone; RSI rising; MACD bullish; volume 1.6x 20d avg; near 20-day high (breakout zone)
-10,2026-10-26,PERSISTENT,IT,daily,5850.0,5453.87,5453.87,198.07,6642.27,2,11700.0,OPEN,,,,,2,"uptrend (price>SMA50, SMA20>SMA50); RSI 59 in healthy zone; MACD bullish; near 20-day high (breakout zone)"
-11,2026-10-28,PNB,Bank,crossover,120.31,112.75,112.75,3.03,,105,12632.55,OPEN,,,,,0,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +13.1%
+8,2026-10-22,TECHM,IT,crossover,1829.1,1696.41,1696.41,53.08,,6,10974.6,OPEN,,,,,5,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +22.7%
+9,2026-10-26,JSWSTEEL,Metal,daily,1260.0,1191.47,1191.47,34.26,1397.06,10,12600.0,OPEN,,,,,3,RSI 55 in healthy zone; RSI rising; MACD bullish; volume 1.6x 20d avg; near 20-day high (breakout zone)
+10,2026-10-26,PERSISTENT,IT,daily,5850.0,5453.87,5453.87,198.07,6642.27,2,11700.0,OPEN,,,,,3,"uptrend (price>SMA50, SMA20>SMA50); RSI 59 in healthy zone; MACD bullish; near 20-day high (breakout zone)"
+11,2026-10-28,PNB,Bank,crossover,120.31,112.75,112.75,3.03,,105,12632.55,OPEN,,,,,1,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +13.1%
+12,2026-10-29,NYKAA,Retail,crossover,352.9,326.02,326.02,10.75,,29,10234.1,OPEN,,,,,0,20-day average just crossed above the 50-day average (trend turning up); 3-month return vs NIFTY +13.2%
