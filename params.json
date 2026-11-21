@@ -1,8 +1,8 @@
 {
-  "generated": "2026-11-14",
+  "generated": "2026-11-21",
   "adopted_tuned": false,
   "edge_ok": true,
-  "reason": "Kept default rules \u2014 tuned rules did NOT pass: edge/day beats defaults by 10%+, capital simulation agrees.",
+  "reason": "Kept default rules \u2014 tuned rules did NOT pass: edge/day beats defaults by 10%+.",
   "params": {
     "min_score": 60,
     "rsi_low": 45,
@@ -17,6 +17,6 @@
     "rs_filter": 1,
     "rs_lookback": 63
   },
-  "oos_win_rate_pct": 41.2,
-  "oos_avg_ret_pct": 0.365
+  "oos_win_rate_pct": 40.5,
+  "oos_avg_ret_pct": 0.299
 }
