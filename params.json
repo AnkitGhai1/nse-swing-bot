@@ -1,8 +1,8 @@
 {
-  "generated": "2026-11-21",
+  "generated": "2026-11-28",
   "adopted_tuned": false,
   "edge_ok": true,
-  "reason": "Kept default rules \u2014 tuned rules did NOT pass: edge/day beats defaults by 10%+.",
+  "reason": "Kept default rules \u2014 tuned rules did NOT pass: profitable after costs, profit factor > 1, edge/day beats defaults by 10%+, capital simulation agrees.",
   "params": {
     "min_score": 60,
     "rsi_low": 45,
@@ -17,6 +17,6 @@
     "rs_filter": 1,
     "rs_lookback": 63
   },
-  "oos_win_rate_pct": 40.5,
-  "oos_avg_ret_pct": 0.299
+  "oos_win_rate_pct": 41.0,
+  "oos_avg_ret_pct": 0.029
 }
